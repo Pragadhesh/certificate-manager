@@ -12,21 +12,27 @@ import ForgeUI, {
     useProductContext,
     useState,
     Strong,
+    ButtonSet,
   } from "@forge/ui";
   import api, { route } from "@forge/api";
+  const isValidDomain = require('is-valid-domain')
 
   const STATE = {
     TITLE: 0,
-    INPUT: 1,
+    CATEGORY: 1,
+    INPUT: 2,
     SUCCESS: 2,
   };
   
   const App = () => {
     const [state, setState] = useState(STATE.TITLE)
+    const [error, setError] = useState(null);
     
     switch (state) {
         case STATE.TITLE:
             return doTitle();
+        case STATE.CATEGORY:
+            return doCategory();
         case STATE.INPUT:
             return doInput();
         }
@@ -35,42 +41,82 @@ import ForgeUI, {
         return (
           <Fragment>
             <Button
-              text="📣 Add Certificates"
+              text="📣 Certificate Manager"
               onClick={() => {
-                setState(STATE.INPUT);
+                setState(STATE.CATEGORY);
               }}
             />
           </Fragment>
         );
       }
 
-      async function onSubmit(formData) {
-        /**
-         * formData:
-         * {
-         *    username: 'Username',
-         *    products: ['jira']
-         * }
-         */
-        console.log(formData)
+    function doCategory() {
+        return (
+            <Fragment>
+                <ButtonSet>
+                <Button
+                text="Check Status"
+                onClick={() => {
+                  setState(STATE.INPUT);
+                }}
+              />
+              <Button
+                text="Add New Certificate"
+                onClick={() => {
+                  setState(STATE.INPUT);
+                }}
+              />
+              </ButtonSet>
+            </Fragment>
+          );
+    }
+
+    async function createCertificate({certificatename,issuedon,expireson}) {
+        //const dateissued = new Date(issuedon)
+        //const dateexpires = new Date(expireson)
+        if (!isValidDomain(certificatename))
+        {
+            let errorMessage = "Please enter a valid name"
+            console.log(errorMessage)
+            setError(errorMessage)
+        }
+        else if (issuedon >= expireson)
+        {
+            let errorMessage = "Please enter valid dates"
+            console.log(errorMessage)
+            setError(errorMessage)
+        }
+        else
+        {
+            setError(null)
+        }
       };
 
     function doInput() {
         return (
             <Fragment>
-                <Form onSubmit={onSubmit}>
-                <TextField label="Certificate Name" name="certificate-name" isRequired={true} />
-                <DatePicker label="Issued On" name="issued-on" isRequired={true}/>
-                <DatePicker label="Expires On" name="expires-on" isRequired={true}/>
+                <Button
+                text="< Back"
+                onClick={() => {
+                  setState(STATE.CATEGORY);
+                }}
+                />
+                <Form onSubmit={createCertificate}>
+                {error ? (
+                    <Text>
+                    <Strong> {`${error}`}</Strong>
+                    </Text>
+                ) : (
+                    <Text>
+                    <Strong>Please complete the fields below:</Strong>
+                    </Text>
+                )}
+                <TextField label="Certificate Name" name="certificatename" isRequired={true} />
+                <DatePicker label="Issued On" name="issuedon" isRequired={true}/>
+                <DatePicker label="Expires On" name="expireson" isRequired={true}/>
                 </Form>
             </Fragment>
                 );
-    }
-
-
-
-    async function createCertificate(params:string) {
-        console.log("Reached function")
     }
   };
   
