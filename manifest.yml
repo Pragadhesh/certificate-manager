@@ -1,0 +1,11 @@
+modules:
+  macro:
+    - key: certificate-manager
+      function: main
+      title: Certificate Manager
+      description: Allows users to manager the Certificates
+  function:
+    - key: main
+      handler: index.run
+app:
+  id: ari:cloud:ecosystem::app/dd39768d-a996-4de5-9ea4-174e6b998459
