@@ -88,6 +88,34 @@ import ForgeUI, {
         }
         else
         {
+            console.log("returned else")
+            const checkspace = await api.asApp().requestConfluence(route`/wiki/rest/api/space/certificatemanager`, {
+                headers: {
+                  'Accept': 'application/json'
+                }
+              });
+            if(checkspace.status != 200)
+            {
+                console.log("eee")
+                var bodyData = `{
+                    "key": "certificatemanager",
+                    "name": "Certificate Manager"
+                  }`;
+                const response = await api.asApp().requestConfluence(route`/wiki/rest/api/space`, {
+                    method: 'POST',
+                    headers: {
+                      'Accept': 'application/json',
+                      'Content-Type': 'application/json'
+                    },
+                    body: bodyData
+                });
+                console.log(response.text())
+                console.log(response)
+                response.text().then(function (text) {
+                    console.log(text)
+                  });
+
+            }
             setError(null)
         }
       };
