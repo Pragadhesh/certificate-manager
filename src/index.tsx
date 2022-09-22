@@ -88,7 +88,6 @@ import ForgeUI, {
         }
         else
         {
-            console.log("returned else")
             const checkspace = await api.asApp().requestConfluence(route`/wiki/rest/api/space/certificatemanager`, {
                 headers: {
                   'Accept': 'application/json'
@@ -96,7 +95,6 @@ import ForgeUI, {
               });
             if(checkspace.status != 200)
             {
-                console.log("eee")
                 var bodyData = `{
                     "key": "certificatemanager",
                     "name": "Certificate Manager"
@@ -109,15 +107,88 @@ import ForgeUI, {
                     },
                     body: bodyData
                 });
-                console.log(response.text())
-                console.log(response)
                 response.text().then(function (text) {
                     console.log(text)
                   });
 
             }
+            let contentid;
+            let tablevalues;
+            let current_version;
+            const contentdetails = await api.asApp().requestConfluence(route`/wiki/rest/api/space/certificatemanager/content`, {
+              headers: {
+                'Accept': 'application/json'
+              }})
+              .then(response =>
+                response.json().then(data=>
+                  {
+                    for (var key in data.page.results) {
+                      var page_details = data.page.results[key]
+                      if(page_details.title == "Certificate Details")
+                      {
+                        contentid = page_details.id
+                      }
+                    }
+
+                  })
+              )
+              .catch(err =>
+              {
+                console.log(err)
+              }
+              )
+            console.log(contentid)
+            const pagedetails = await api.asApp().requestConfluence(route`/wiki/rest/api/content/${contentid}?expand=body.storage,version`, {
+              headers: {
+                'Accept': 'application/json'
+              }
+            })
+            .then(response =>
+              response.json().then(data=>
+                {
+                  tablevalues = data.body.storage.value
+                  current_version = data.version.number
+                })
+            )
+            .catch(err =>
+            {
+              console.log(err)
+            }
+            )
+            let tvalues = tablevalues.split('</tbody></table>')
+            let newcertificate = '<tr><td><p>'+certificatename+'</p></td><td><p>'+issuedon+'</p></td><td><p>'+expireson+'</p></td></tr></tbody></table>'
+            let headers = tvalues[0].replace(/"/g, '\'')
+            console.log("THis is new certificate")
+            console.log(newcertificate)
+            let tablebody = '"'+headers+newcertificate+'"'
+            console.log(tablebody)
+            var bodyData = `{
+              "version": {
+                "number": ${current_version+1}
+              },
+              "title": "Certificate Details",
+              "type": "page",
+              "body": {
+                "storage": {
+                  "value": ${tablebody},
+                  "representation": "storage"
+                }
+              }
+            }`;
+            const response = await api.asApp().requestConfluence(route`/wiki/rest/api/content/${contentid}`, {
+              method: 'PUT',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              },
+              body: bodyData
+            });
             setError(null)
         }
+
+
+
+
       };
 
     function doInput() {
