@@ -93,25 +93,62 @@ import ForgeUI, {
                   'Accept': 'application/json'
                 }
               });
+            let space_id
             if(checkspace.status != 200)
             {
                 var bodyData = `{
                     "key": "certificatemanager",
                     "name": "Certificate Manager"
                   }`;
-                const response = await api.asApp().requestConfluence(route`/wiki/rest/api/space`, {
+                const createspaceresponse = await api.asApp().requestConfluence(route`/wiki/rest/api/space`, {
                     method: 'POST',
                     headers: {
                       'Accept': 'application/json',
                       'Content-Type': 'application/json'
                     },
                     body: bodyData
+                })
+                .then(response =>
+                  response.json().then(data=>
+                    {
+                      space_id = data.id
+                    })
+                )
+                .catch(err =>
+                {
+                  console.log(err)
+                }
+                )
+                // Create Initial certificate
+                const itvalues =  '<table data-layout="default"><colgroup><col style="width: 226.67px;" /><col style="width: 226.67px;" /><col style="width: 226.67px;" /></colgroup><tbody><tr><th><p><strong>Certificate Name</strong></p></th><th><p><strong>Issued On</strong></p></th><th><p><strong>Expires On</strong></p></th></tr>'
+                let headers = itvalues.replace(/"/g, '\'')
+                let newcertificate = '<tr><td><p>'+certificatename+'</p></td><td><p>'+issuedon+'</p></td><td><p>'+expireson+'</p></td></tr></tbody></table>'
+                let tablebody = '"'+headers+newcertificate+'"'
+                var bodyData = `{
+                  "title": "Certificate Details",
+                  "type": "page",
+                  "space": {
+                    "id": ${space_id},
+                    "name": "Certificate Manager"
+                  },
+                  "body": {
+                    "storage": {
+                      "value": ${tablebody},
+                      "representation": "storage"
+                    }
+                  }
+                }`;
+                const tableinit = await api.asApp().requestConfluence(route`/wiki/rest/api/content`, {
+                  method: 'POST',
+                  headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                  },
+                  body: bodyData
                 });
-                response.text().then(function (text) {
-                    console.log(text)
-                  });
-
             }
+            else
+            {
             let contentid;
             let tablevalues;
             let current_version;
@@ -137,7 +174,6 @@ import ForgeUI, {
                 console.log(err)
               }
               )
-            console.log(contentid)
             const pagedetails = await api.asApp().requestConfluence(route`/wiki/rest/api/content/${contentid}?expand=body.storage,version`, {
               headers: {
                 'Accept': 'application/json'
@@ -158,10 +194,7 @@ import ForgeUI, {
             let tvalues = tablevalues.split('</tbody></table>')
             let newcertificate = '<tr><td><p>'+certificatename+'</p></td><td><p>'+issuedon+'</p></td><td><p>'+expireson+'</p></td></tr></tbody></table>'
             let headers = tvalues[0].replace(/"/g, '\'')
-            console.log("THis is new certificate")
-            console.log(newcertificate)
             let tablebody = '"'+headers+newcertificate+'"'
-            console.log(tablebody)
             var bodyData = `{
               "version": {
                 "number": ${current_version+1}
@@ -183,6 +216,7 @@ import ForgeUI, {
               },
               body: bodyData
             });
+          }
             setError(null)
         }
 
