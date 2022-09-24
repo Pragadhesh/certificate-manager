@@ -47,7 +47,7 @@ import ForgeUI, {
       certificate_list = await storage.get("certificate_list")
       setCertificates(certificate_list)
       console.log(certificates)
-    },[]);
+    },[state]);
 
     switch (state) {
         case STATE.TITLE:
