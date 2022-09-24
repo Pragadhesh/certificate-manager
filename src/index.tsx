@@ -13,21 +13,42 @@ import ForgeUI, {
     useState,
     Strong,
     ButtonSet,
+    Table,
+    Cell,
+    Head,
+    Row,
+    useEffect,
   } from "@forge/ui";
   import api, { route } from "@forge/api";
+  import { storage } from '@forge/api';
   const isValidDomain = require('is-valid-domain')
 
   const STATE = {
     TITLE: 0,
     CATEGORY: 1,
     INPUT: 2,
-    SUCCESS: 2,
+    VIEW_CERTS: 3
   };
-  
+
+  interface Certificates {
+    name: string,
+    issued_date: Date,
+    expired_date: Date,
+  }
+
   const App = () => {
     const [state, setState] = useState(STATE.TITLE)
     const [error, setError] = useState(null);
-    
+    const [certificates,setCertificates] = useState([]);
+    let certificate_list : Array<Certificates> = [];
+
+    useEffect(async () => {
+      console.log("entered use effect");
+      certificate_list = await storage.get("certificate_list")
+      setCertificates(certificate_list)
+      console.log(certificates)
+    },[]);
+
     switch (state) {
         case STATE.TITLE:
             return doTitle();
@@ -35,6 +56,8 @@ import ForgeUI, {
             return doCategory();
         case STATE.INPUT:
             return doInput();
+        case STATE.VIEW_CERTS:
+            return viewCerts();
         }
 
     function doTitle() {
@@ -66,10 +89,61 @@ import ForgeUI, {
                   setState(STATE.INPUT);
                 }}
               />
+              <Button
+                text="View Existing Certificates"
+                onClick={() => {
+                  setState(STATE.VIEW_CERTS);
+                }}
+              />
               </ButtonSet>
             </Fragment>
           );
     }
+
+    function viewCerts()
+    {
+      return (
+        <Fragment>
+          <Button
+                text="< Back"
+                onClick={() => {
+                  setState(STATE.CATEGORY);
+                }}
+          />
+          <Table>
+            <Head>
+              <Cell>
+                <Text>Certificate Name</Text>
+              </Cell>
+              <Cell>
+                <Text>Issued On</Text>
+              </Cell>
+              <Cell>
+                <Text>Expires On</Text>
+              </Cell>
+            </Head>
+          {
+            certificates.map(certificate => 
+              (
+                <Row>
+                  <Cell>
+                    <Text>{certificate.name}</Text>
+                  </Cell>
+                  <Cell>
+                    <Text>{certificate.issued_date}</Text>
+                  </Cell>
+                  <Cell>
+                    <Text>{certificate.expired_date}</Text>
+                  </Cell>
+                </Row>
+            ))
+            }
+            </Table>
+        </Fragment>
+      );
+    }
+
+
 
     async function createCertificate({certificatename,issuedon,expireson}) {
         //const dateissued = new Date(issuedon)
@@ -219,11 +293,32 @@ import ForgeUI, {
           }
             setError(null)
         }
-
-
-
-
       };
+
+      async function addCertificate({certificatename,issuedon,expireson}) {
+        if (!isValidDomain(certificatename))
+        {
+            let errorMessage = "Please enter a valid name"
+            console.log(errorMessage)
+            setError(errorMessage)
+        }
+        else if (issuedon >= expireson)
+        {
+            let errorMessage = "Please enter valid dates"
+            console.log(errorMessage)
+            setError(errorMessage)
+        }
+        else {
+          certificate_list = await storage.get("certificate_list")
+          certificate_list.push({
+            name: certificatename,
+            issued_date: new Date(issuedon),
+            expired_date: new Date(expireson)
+          })
+          storage.set("certificate_list",certificate_list)
+          console.log(certificate_list)
+        }
+      }
 
     function doInput() {
         return (
@@ -234,7 +329,7 @@ import ForgeUI, {
                   setState(STATE.CATEGORY);
                 }}
                 />
-                <Form onSubmit={createCertificate}>
+                <Form onSubmit={addCertificate}>
                 {error ? (
                     <Text>
                     <Strong> {`${error}`}</Strong>
