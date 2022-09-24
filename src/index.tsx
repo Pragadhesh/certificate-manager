@@ -39,14 +39,13 @@ import ForgeUI, {
   const App = () => {
     const [state, setState] = useState(STATE.TITLE)
     const [error, setError] = useState(null);
-    const [certificates,setCertificates] = useState([]);
+    const [certificates,setCertificates] = useState<Certificates[]>([]);
     let certificate_list : Array<Certificates> = [];
 
     useEffect(async () => {
       console.log("entered use effect");
       certificate_list = await storage.get("certificate_list")
       setCertificates(certificate_list)
-      console.log(certificates)
     },[state]);
 
     switch (state) {
@@ -130,10 +129,10 @@ import ForgeUI, {
                     <Text>{certificate.name}</Text>
                   </Cell>
                   <Cell>
-                    <Text>{certificate.issued_date}</Text>
+                    <Text>{new Date(certificate.issued_date).toLocaleDateString()}</Text>
                   </Cell>
                   <Cell>
-                    <Text>{certificate.expired_date}</Text>
+                    <Text>{new Date(certificate.expired_date).toLocaleDateString()}</Text>
                   </Cell>
                 </Row>
             ))
