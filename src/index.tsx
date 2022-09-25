@@ -27,7 +27,11 @@ import ForgeUI, {
     TITLE: 0,
     CATEGORY: 1,
     INPUT: 2,
-    VIEW_CERTS: 3
+    VIEW_CERTS: 3,
+    VIEW_REPORT: 4,
+    VIEW_EXPIRING_CERTS_THIS_WEEK: 5,
+    VIEW_EXPIRING_CERTS_THIS_MONTH: 6,
+    VIEW_EXPIRING_CERTS_NEXT_MONTH: 7
   };
 
   interface Certificates {
@@ -43,7 +47,6 @@ import ForgeUI, {
     let certificate_list : Array<Certificates> = [];
 
     useEffect(async () => {
-      console.log("entered use effect");
       certificate_list = await storage.get("certificate_list")
       setCertificates(certificate_list)
     },[state]);
@@ -57,7 +60,168 @@ import ForgeUI, {
             return doInput();
         case STATE.VIEW_CERTS:
             return viewCerts();
+        case STATE.VIEW_REPORT:
+            return viewReport();
+        case STATE.VIEW_EXPIRING_CERTS_THIS_WEEK:
+            return viewExpiringCerts("week");
+        case STATE.VIEW_EXPIRING_CERTS_THIS_MONTH:
+            return viewExpiringCerts("month");
+        case STATE.VIEW_EXPIRING_CERTS_NEXT_MONTH:
+            return viewExpiringCerts("nextmonth");
         }
+
+    function viewExpiringCerts(expiration) {
+      certificate_list = certificates
+      if (expiration == "week")
+      {
+        var curr = new Date; // get current date
+        var first = curr.getDate() - curr.getDay(); // First day is the day of the month - the day of the week
+        var last = first + 6; // last day is the first day + 6
+        var startDate = new Date(curr.setDate(first));
+        var endDate = new Date(curr.setDate(last));
+        return(
+        <Fragment>
+          <Button
+                text="< Back"
+                onClick={() => {
+                  setState(STATE.VIEW_REPORT);
+                }}
+          />
+          <Table>
+            <Head>
+              <Cell>
+                <Text>Certificate Name</Text>
+              </Cell>
+              <Cell>
+                <Text>Issued On</Text>
+              </Cell>
+              <Cell>
+                <Text>Expires On</Text>
+              </Cell>
+            </Head>
+          {
+            certificates.filter(
+              function(certificate) {
+                return new Date(certificate.expired_date) >= startDate && new Date(certificate.expired_date) <= endDate
+              }
+            ).map(certificate => 
+              (
+                <Row>
+                  <Cell>
+                    <Text>{certificate.name}</Text>
+                  </Cell>
+                  <Cell>
+                    <Text>{new Date(certificate.issued_date).toLocaleDateString()}</Text>
+                  </Cell>
+                  <Cell>
+                    <Text>{new Date(certificate.expired_date).toLocaleDateString()}</Text>
+                  </Cell>
+                </Row>
+            ))
+            }
+            </Table>
+        </Fragment>
+      )
+      }
+      else if (expiration == "month")
+      {
+        var date = new Date();
+        var startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+        var endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        return(
+        <Fragment>
+          <Button
+                text="< Back"
+                onClick={() => {
+                  setState(STATE.VIEW_REPORT);
+                }}
+          />
+          <Table>
+            <Head>
+              <Cell>
+                <Text>Certificate Name</Text>
+              </Cell>
+              <Cell>
+                <Text>Issued On</Text>
+              </Cell>
+              <Cell>
+                <Text>Expires On</Text>
+              </Cell>
+            </Head>
+          {
+            certificates.filter(
+              function(certificate) {
+                return new Date(certificate.expired_date) >= startDate && new Date(certificate.expired_date) <= endDate
+              }
+            ).map(certificate => 
+              (
+                <Row>
+                  <Cell>
+                    <Text>{certificate.name}</Text>
+                  </Cell>
+                  <Cell>
+                    <Text>{new Date(certificate.issued_date).toLocaleDateString()}</Text>
+                  </Cell>
+                  <Cell>
+                    <Text>{new Date(certificate.expired_date).toLocaleDateString()}</Text>
+                  </Cell>
+                </Row>
+            ))
+            }
+            </Table>
+        </Fragment>
+      )
+      }
+      else
+      {
+        var date = new Date();
+        var startDate = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+        var endDate = new Date(date.getFullYear(), date.getMonth() + 2, 0);
+        return(
+        <Fragment>
+          <Button
+                text="< Back"
+                onClick={() => {
+                  setState(STATE.VIEW_REPORT);
+                }}
+          />
+          <Table>
+            <Head>
+              <Cell>
+                <Text>Certificate Name</Text>
+              </Cell>
+              <Cell>
+                <Text>Issued On</Text>
+              </Cell>
+              <Cell>
+                <Text>Expires On</Text>
+              </Cell>
+            </Head>
+          {
+            certificates.filter(
+              function(certificate) {
+                return new Date(certificate.expired_date) >= startDate && new Date(certificate.expired_date) <= endDate
+              }
+            ).map(certificate => 
+              (
+                <Row>
+                  <Cell>
+                    <Text>{certificate.name}</Text>
+                  </Cell>
+                  <Cell>
+                    <Text>{new Date(certificate.issued_date).toLocaleDateString()}</Text>
+                  </Cell>
+                  <Cell>
+                    <Text>{new Date(certificate.expired_date).toLocaleDateString()}</Text>
+                  </Cell>
+                </Row>
+            ))
+            }
+            </Table>
+        </Fragment>
+      )
+      }
+    }
 
     function doTitle() {
         return (
@@ -76,12 +240,6 @@ import ForgeUI, {
         return (
             <Fragment>
                 <ButtonSet>
-                <Button
-                text="Check Status"
-                onClick={() => {
-                  setState(STATE.INPUT);
-                }}
-              />
               <Button
                 text="Add New Certificate"
                 onClick={() => {
@@ -89,9 +247,15 @@ import ForgeUI, {
                 }}
               />
               <Button
-                text="View Existing Certificates"
+                text="View All Certificates"
                 onClick={() => {
                   setState(STATE.VIEW_CERTS);
+                }}
+              />
+              <Button
+                text="Check Report"
+                onClick={() => {
+                  setState(STATE.VIEW_REPORT);
                 }}
               />
               </ButtonSet>
@@ -139,6 +303,49 @@ import ForgeUI, {
             }
             </Table>
         </Fragment>
+      );
+    }
+
+    function viewReport()
+    {
+      return (
+        <Fragment>
+          <Button
+                text="< Back"
+                onClick={() => {
+                  setState(STATE.CATEGORY);
+                }}
+          />
+          <Text>
+             <Strong>Certificates Expiring In</Strong>
+          </Text>
+          <ButtonSet>
+              <Button
+                text="This Week"
+                onClick={() => {
+                  setState(STATE.VIEW_EXPIRING_CERTS_THIS_WEEK);
+                }}
+              />
+              <Button
+                text="This Month"
+                onClick={() => {
+                  setState(STATE.VIEW_EXPIRING_CERTS_THIS_MONTH);
+                }}
+              />
+              <Button
+                text="Next Month"
+                onClick={() => {
+                  setState(STATE.VIEW_EXPIRING_CERTS_NEXT_MONTH);
+                }}
+              />
+              </ButtonSet>
+              <Button
+                text="Generate Report"
+                onClick={() => {
+                  setState(STATE.VIEW_CERTS);
+                }}
+              />
+          </Fragment>
       );
     }
 
