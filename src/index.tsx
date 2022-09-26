@@ -31,7 +31,8 @@ import ForgeUI, {
     VIEW_REPORT: 4,
     VIEW_EXPIRING_CERTS_THIS_WEEK: 5,
     VIEW_EXPIRING_CERTS_THIS_MONTH: 6,
-    VIEW_EXPIRING_CERTS_NEXT_MONTH: 7
+    VIEW_EXPIRING_CERTS_NEXT_MONTH: 7,
+    VIEW_DELETE_CERT: 8,
   };
 
   interface Certificates {
@@ -68,6 +69,8 @@ import ForgeUI, {
             return viewExpiringCerts("month");
         case STATE.VIEW_EXPIRING_CERTS_NEXT_MONTH:
             return viewExpiringCerts("nextmonth");
+        case STATE.VIEW_DELETE_CERT:
+            return viewDeleteCert();
         }
 
     function viewExpiringCerts(expiration) {
@@ -298,6 +301,17 @@ import ForgeUI, {
                   <Cell>
                     <Text>{new Date(certificate.expired_date).toLocaleDateString()}</Text>
                   </Cell>
+                  <Cell>
+                    <ButtonSet>
+                      <Button  onClick={() => {
+                  setState(STATE.VIEW_REPORT);
+                      }}text="Update"/>
+                <Button  onClick={() => {
+                  deleteCertificate(certificate.name);
+                  setState(STATE.VIEW_DELETE_CERT);
+                }}text="Delete"/>
+                </ButtonSet>
+                  </Cell>
                 </Row>
             ))
             }
@@ -348,6 +362,33 @@ import ForgeUI, {
           </Fragment>
       );
     }
+
+
+    function viewDeleteCert()
+    {
+      return (
+        <Fragment>
+          <Button
+                text="< Back"
+                onClick={() => {
+                  setState(STATE.CATEGORY);
+                }}
+          />
+          <Text>
+             <Strong>Certificate Deleted Successfully</Strong>
+          </Text>
+        </Fragment>
+      );
+    }
+
+    async function deleteCertificate(certname) {
+      certificate_list = await storage.get("certificate_list")
+      let final_list = certificate_list.filter(certificate => {
+        return certificate.name !== certname;
+      });
+      storage.set("certificate_list",final_list)
+    }
+
 
 
 
