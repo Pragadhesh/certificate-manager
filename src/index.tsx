@@ -21,6 +21,7 @@ import ForgeUI, {
   } from "@forge/ui";
   import api, { route } from "@forge/api";
   import { storage } from '@forge/api';
+import { Certificate } from "crypto";
   const isValidDomain = require('is-valid-domain')
 
   const STATE = {
@@ -33,23 +34,35 @@ import ForgeUI, {
     VIEW_EXPIRING_CERTS_THIS_MONTH: 6,
     VIEW_EXPIRING_CERTS_NEXT_MONTH: 7,
     VIEW_DELETE_CERT: 8,
+    VIEW_UPDATE_CERT: 9,
+    VIEW_UPDATE_SUCCESSFUL: 10,
+    VIEW_ADD_SUCCESSFUL: 11
   };
 
   interface Certificates {
     name: string,
     issued_date: Date,
-    expired_date: Date,
+    expired_date: Date
   }
 
   const App = () => {
     const [state, setState] = useState(STATE.TITLE)
     const [error, setError] = useState(null);
     const [certificates,setCertificates] = useState<Certificates[]>([]);
+    const [updatedcert, setUpdatedCert] = useState<{[key: string]: any}>({});
+
     let certificate_list : Array<Certificates> = [];
+    let update_cert: Certificates = {
+      name: "",
+      issued_date: undefined,
+      expired_date: undefined
+    };
 
     useEffect(async () => {
       certificate_list = await storage.get("certificate_list")
+      update_cert      = await storage.get("updated_cert")
       setCertificates(certificate_list)
+      setUpdatedCert(update_cert)
     },[state]);
 
     switch (state) {
@@ -71,6 +84,12 @@ import ForgeUI, {
             return viewExpiringCerts("nextmonth");
         case STATE.VIEW_DELETE_CERT:
             return viewDeleteCert();
+        case STATE.VIEW_UPDATE_CERT:
+            return viewUpdateCert();
+        case STATE.VIEW_UPDATE_SUCCESSFUL:
+            return viewUpdateSuccessful();
+        case STATE.VIEW_ADD_SUCCESSFUL:
+            return viewAdditionSuccessful();
         }
 
     function viewExpiringCerts(expiration) {
@@ -226,6 +245,36 @@ import ForgeUI, {
       }
     }
 
+    function viewUpdateCert() {
+      return (
+        <Fragment>
+          <Button
+                text="< Back"
+                onClick={() => {
+                  removeUpdateStatus();
+                  setState(STATE.VIEW_CERTS);
+                }}
+          />
+          <Form onSubmit={updateCertificate}>
+                {error ? (
+                    <Text>
+                    <Strong> {`${error}`}</Strong>
+                    </Text>
+                ) : (
+                    <Text>
+                    <Strong>Please complete the fields below:</Strong>
+                    </Text>
+                )}      
+                <TextField label="Certificate Name"  name="certificatename" defaultValue={updatedcert.name}   isRequired={true}  />
+                <DatePicker label="Issued On" name="issuedon" defaultValue={updatedcert.issued_date.slice(0,10)} isRequired={true}/>
+                <DatePicker label="Expires On" name="expireson" defaultValue={updatedcert.expired_date.slice(0,10)} isRequired={true}/>
+          </Form>
+        </Fragment>
+      );
+
+    }
+
+
     function doTitle() {
         return (
           <Fragment>
@@ -304,7 +353,8 @@ import ForgeUI, {
                   <Cell>
                     <ButtonSet>
                       <Button  onClick={() => {
-                  setState(STATE.VIEW_REPORT);
+                  setUpdateStatus(certificate.name);
+                  setState(STATE.VIEW_UPDATE_CERT);
                       }}text="Update"/>
                 <Button  onClick={() => {
                   deleteCertificate(certificate.name);
@@ -381,6 +431,40 @@ import ForgeUI, {
       );
     }
 
+    function viewUpdateSuccessful()
+    {
+      return (
+        <Fragment>
+          <Button
+                text="< Back"
+                onClick={() => {
+                  setState(STATE.VIEW_CERTS);
+                }}
+          />
+          <Text>
+             <Strong>Certificate Updated Successfully</Strong>
+          </Text>
+        </Fragment>
+      );
+    }
+
+    function viewAdditionSuccessful()
+    {
+      return (
+        <Fragment>
+          <Button
+                text="< Back"
+                onClick={() => {
+                  setState(STATE.VIEW_CERTS);
+                }}
+          />
+          <Text>
+             <Strong>Certificate Added Successfully</Strong>
+          </Text>
+        </Fragment>
+      );
+    }
+
     async function deleteCertificate(certname) {
       certificate_list = await storage.get("certificate_list")
       let final_list = certificate_list.filter(certificate => {
@@ -389,7 +473,25 @@ import ForgeUI, {
       storage.set("certificate_list",final_list)
     }
 
+    async function setUpdateStatus(certificatename) {
+      certificate_list = await storage.get("certificate_list")
+      for(let i=0;i<certificate_list.length;i++)
+      {
+        if(certificate_list[i].name == certificatename)
+        {
+          update_cert.name = certificate_list[i].name
+          update_cert.issued_date = certificate_list[i].issued_date
+          update_cert.expired_date = certificate_list[i].expired_date
+        }
+      }
+      storage.set("updated_cert",update_cert)
+      storage.set("certificate_list",certificate_list)
+    }
 
+    async function removeUpdateStatus() {
+      update_cert = null;
+      storage.set("updated_cert",update_cert)
+    }
 
 
     async function createCertificate({certificatename,issuedon,expireson}) {
@@ -398,13 +500,11 @@ import ForgeUI, {
         if (!isValidDomain(certificatename))
         {
             let errorMessage = "Please enter a valid name"
-            console.log(errorMessage)
             setError(errorMessage)
         }
         else if (issuedon >= expireson)
         {
             let errorMessage = "Please enter valid dates"
-            console.log(errorMessage)
             setError(errorMessage)
         }
         else
@@ -546,13 +646,11 @@ import ForgeUI, {
         if (!isValidDomain(certificatename))
         {
             let errorMessage = "Please enter a valid name"
-            console.log(errorMessage)
             setError(errorMessage)
         }
         else if (issuedon >= expireson)
         {
             let errorMessage = "Please enter valid dates"
-            console.log(errorMessage)
             setError(errorMessage)
         }
         else {
@@ -563,7 +661,35 @@ import ForgeUI, {
             expired_date: new Date(expireson)
           })
           storage.set("certificate_list",certificate_list)
-          console.log(certificate_list)
+          setState(STATE.VIEW_ADD_SUCCESSFUL)
+        }
+      }
+
+      async function updateCertificate({certificatename,issuedon,expireson}) {
+        if (!isValidDomain(certificatename))
+        {
+            let errorMessage = "Please enter a valid name"
+            setError(errorMessage)
+        }
+        else if (issuedon >= expireson)
+        {
+            let errorMessage = "Please enter valid dates"
+            setError(errorMessage)
+        }
+        else {
+          certificate_list = await storage.get("certificate_list")
+          update_cert = await storage.get("updated_cert")
+          for(let i=0;i<certificate_list.length;i++)
+          {
+            if(certificate_list[i].name == update_cert.name)
+            {
+              certificate_list[i].name = certificatename
+              certificate_list[i].issued_date = issuedon 
+              certificate_list[i].expired_date = expireson
+            }
+          }
+          storage.set("certificate_list",certificate_list)
+          setState(STATE.VIEW_UPDATE_SUCCESSFUL)
         }
       }
 
