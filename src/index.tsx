@@ -405,8 +405,8 @@ import { Certificate } from "crypto";
               </ButtonSet>
               <Button
                 text="Generate Report"
-                onClick={() => {
-                  setState(STATE.VIEW_CERTS);
+                onClick={async () => {
+                  await generateReport();
                 }}
               />
           </Fragment>
@@ -494,154 +494,7 @@ import { Certificate } from "crypto";
     }
 
 
-    async function createCertificate({certificatename,issuedon,expireson}) {
-        //const dateissued = new Date(issuedon)
-        //const dateexpires = new Date(expireson)
-        if (!isValidDomain(certificatename))
-        {
-            let errorMessage = "Please enter a valid name"
-            setError(errorMessage)
-        }
-        else if (issuedon >= expireson)
-        {
-            let errorMessage = "Please enter valid dates"
-            setError(errorMessage)
-        }
-        else
-        {
-            const checkspace = await api.asApp().requestConfluence(route`/wiki/rest/api/space/certificatemanager`, {
-                headers: {
-                  'Accept': 'application/json'
-                }
-              });
-            let space_id
-            if(checkspace.status != 200)
-            {
-                var bodyData = `{
-                    "key": "certificatemanager",
-                    "name": "Certificate Manager"
-                  }`;
-                const createspaceresponse = await api.asApp().requestConfluence(route`/wiki/rest/api/space`, {
-                    method: 'POST',
-                    headers: {
-                      'Accept': 'application/json',
-                      'Content-Type': 'application/json'
-                    },
-                    body: bodyData
-                })
-                .then(response =>
-                  response.json().then(data=>
-                    {
-                      space_id = data.id
-                    })
-                )
-                .catch(err =>
-                {
-                  console.log(err)
-                }
-                )
-                // Create Initial certificate
-                const itvalues =  '<table data-layout="default"><colgroup><col style="width: 226.67px;" /><col style="width: 226.67px;" /><col style="width: 226.67px;" /></colgroup><tbody><tr><th><p><strong>Certificate Name</strong></p></th><th><p><strong>Issued On</strong></p></th><th><p><strong>Expires On</strong></p></th></tr>'
-                let headers = itvalues.replace(/"/g, '\'')
-                let newcertificate = '<tr><td><p>'+certificatename+'</p></td><td><p>'+issuedon+'</p></td><td><p>'+expireson+'</p></td></tr></tbody></table>'
-                let tablebody = '"'+headers+newcertificate+'"'
-                var bodyData = `{
-                  "title": "Certificate Details",
-                  "type": "page",
-                  "space": {
-                    "id": ${space_id},
-                    "name": "Certificate Manager"
-                  },
-                  "body": {
-                    "storage": {
-                      "value": ${tablebody},
-                      "representation": "storage"
-                    }
-                  }
-                }`;
-                const tableinit = await api.asApp().requestConfluence(route`/wiki/rest/api/content`, {
-                  method: 'POST',
-                  headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                  },
-                  body: bodyData
-                });
-            }
-            else
-            {
-            let contentid;
-            let tablevalues;
-            let current_version;
-            const contentdetails = await api.asApp().requestConfluence(route`/wiki/rest/api/space/certificatemanager/content`, {
-              headers: {
-                'Accept': 'application/json'
-              }})
-              .then(response =>
-                response.json().then(data=>
-                  {
-                    for (var key in data.page.results) {
-                      var page_details = data.page.results[key]
-                      if(page_details.title == "Certificate Details")
-                      {
-                        contentid = page_details.id
-                      }
-                    }
-
-                  })
-              )
-              .catch(err =>
-              {
-                console.log(err)
-              }
-              )
-            const pagedetails = await api.asApp().requestConfluence(route`/wiki/rest/api/content/${contentid}?expand=body.storage,version`, {
-              headers: {
-                'Accept': 'application/json'
-              }
-            })
-            .then(response =>
-              response.json().then(data=>
-                {
-                  tablevalues = data.body.storage.value
-                  current_version = data.version.number
-                })
-            )
-            .catch(err =>
-            {
-              console.log(err)
-            }
-            )
-            let tvalues = tablevalues.split('</tbody></table>')
-            let newcertificate = '<tr><td><p>'+certificatename+'</p></td><td><p>'+issuedon+'</p></td><td><p>'+expireson+'</p></td></tr></tbody></table>'
-            let headers = tvalues[0].replace(/"/g, '\'')
-            let tablebody = '"'+headers+newcertificate+'"'
-            var bodyData = `{
-              "version": {
-                "number": ${current_version+1}
-              },
-              "title": "Certificate Details",
-              "type": "page",
-              "body": {
-                "storage": {
-                  "value": ${tablebody},
-                  "representation": "storage"
-                }
-              }
-            }`;
-            const response = await api.asApp().requestConfluence(route`/wiki/rest/api/content/${contentid}`, {
-              method: 'PUT',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-              },
-              body: bodyData
-            });
-          }
-            setError(null)
-        }
-      };
-
+    
       async function addCertificate({certificatename,issuedon,expireson}) {
         if (!isValidDomain(certificatename))
         {
@@ -684,8 +537,8 @@ import { Certificate } from "crypto";
             if(certificate_list[i].name == update_cert.name)
             {
               certificate_list[i].name = certificatename
-              certificate_list[i].issued_date = issuedon 
-              certificate_list[i].expired_date = expireson
+              certificate_list[i].issued_date = new Date(issuedon)
+              certificate_list[i].expired_date = new Date(expireson)
             }
           }
           storage.set("certificate_list",certificate_list)
@@ -719,6 +572,231 @@ import { Certificate } from "crypto";
             </Fragment>
                 );
     }
-  };
+
+  async function generateReport() {
+        certificate_list =  await storage.get("certificate_list")
+        const checkspace = await api.asApp().requestConfluence(route`/wiki/rest/api/space/certificatemanager`, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        const checkspacesresponse = await checkspace.json();
+        if(checkspacesresponse.statusCode != 200)
+        {
+            var bodyData = `{
+                "key": "certificatemanager",
+                "name": "Certificate Manager"
+              }`;
+            const createspace = await api.asApp().requestConfluence(route`/wiki/rest/api/space`, {
+                method: 'POST',
+                headers: {
+                  'Accept': 'application/json',
+                  'Content-Type': 'application/json'
+                },
+                body: bodyData
+            });
+            const createspaceresponse = await createspace.json();
+            const space_id = createspaceresponse.id
+            if(certificate_list.length > 0)
+            {
+            // next 7 days  
+            var curr = new Date; // get current date
+            var first = curr.getDate() - curr.getDay(); // First day is the day of the month - the day of the week
+            var last = first + 6; // last day is the first day + 6
+            var startDate = new Date(curr.setDate(first));
+            var endDate = new Date(curr.setDate(last));
+            const cert_expires_7_days = certificate_list.filter(
+              function(certificate) {
+                return new Date(certificate.expired_date) >= startDate && new Date(certificate.expired_date) <= endDate
+              }
+            )
+            //month
+            var date = new Date();
+            var startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+            var endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+            const cert_expires_this_month = certificate_list.filter(
+              function(certificate) {
+                return new Date(certificate.expired_date) >= startDate && new Date(certificate.expired_date) <= endDate
+              }
+            )
+            //next month
+            var date = new Date();
+            var startDate = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+            var endDate = new Date(date.getFullYear(), date.getMonth() + 2, 0);
+            const cert_expires_next_month = certificate_list.filter(
+              function(certificate) {
+                return new Date(certificate.expired_date) >= startDate && new Date(certificate.expired_date) <= endDate
+              }
+            )
+            let body = ''
+            if(cert_expires_7_days.length > 0)
+            {
+              body = body+'<p><strong>Certs expiring in next 7 days:</strong></p><table data-layout="default"><colgroup><col style="width: 226.67px;" /><col style="width: 226.67px;" /><col style="width: 226.67px;" /></colgroup><tbody><tr><th><p><strong>Certificate Name</strong></p></th><th><p><strong>Issued date</strong></p></th><th><p><strong>Expired date</strong></p></th></tr>'
+              for(let i=0;i<cert_expires_7_days.length;i++)
+              {
+                body = body+'<tr><td><p>'+cert_expires_7_days[i].name+'</p></td><td><p>'+cert_expires_7_days[i].issued_date+'</p></td><td><p>'+cert_expires_7_days[i].expired_date+'</p></td></tr>'
+              }
+              body = body+'</tbody></table>'
+            }
+            if(cert_expires_this_month.length > 0)
+            {
+              body = body+'<p><strong>Certs expiring this month:</strong></p><table data-layout="default"><colgroup><col style="width: 226.67px;" /><col style="width: 226.67px;" /><col style="width: 226.67px;" /></colgroup><tbody><tr><th><p><strong>Certificate Name</strong></p></th><th><p><strong>Issued date</strong></p></th><th><p><strong>Expired date</strong></p></th></tr>'
+              for(let i=0;i<cert_expires_this_month.length;i++)
+              {
+                body = body+'<tr><td><p>'+cert_expires_this_month[i].name+'</p></td><td><p>'+cert_expires_this_month[i].issued_date+'</p></td><td><p>'+cert_expires_this_month[i].expired_date+'</p></td></tr>'
+              }
+              body = body+'</tbody></table>'
+            }
+            if(cert_expires_next_month.length > 0)
+            {
+              body = body+'<p><strong>Certs expiring next month:</strong></p><table data-layout="default"><colgroup><col style="width: 226.67px;" /><col style="width: 226.67px;" /><col style="width: 226.67px;" /></colgroup><tbody><tr><th><p><strong>Certificate Name</strong></p></th><th><p><strong>Issued date</strong></p></th><th><p><strong>Expired date</strong></p></th></tr>'
+              for(let i=0;i<cert_expires_next_month.length;i++)
+              {
+                body = body+'<tr><td><p>'+cert_expires_next_month[i].name+'</p></td><td><p>'+cert_expires_next_month[i].issued_date+'</p></td><td><p>'+cert_expires_next_month[i].expired_date+'</p></td></tr>'
+              }
+              body = body+'</tbody></table>'
+            }
+
+            body = body+'<p><strong>All Certificates</strong></p><table data-layout="default"><colgroup><col style="width: 226.67px;" /><col style="width: 226.67px;" /><col style="width: 226.67px;" /></colgroup><tbody><tr><th><p><strong>Certificate Name</strong></p></th><th><p><strong>Issued date</strong></p></th><th><p><strong>Expired date</strong></p></th></tr>'
+            for(let i=0;i<certificate_list.length;i++)
+            {
+              body = body+'<tr><td><p>'+certificate_list[i].name+'</p></td><td><p>'+certificate_list[i].issued_date+'</p></td><td><p>'+certificate_list[i].expired_date+'</p></td></tr>'
+            }
+            body = body+'</tbody></table>'
+            body = body.replace(/"/g, '\'')
+            body = '"'+body+'"'
+            var current_date = new Date;
+            var title = 'Report Generated on - '+current_date
+            title = '"'+title+'"'
+            var bodyData = `{
+              "title": ${title},
+              "type": "page",
+              "space": {
+                "id": ${space_id},
+                "name": "Certificate Manager"
+              },
+              "body": {
+                "storage": {
+                  "value": ${body},
+                  "representation": "storage"
+                }
+              }
+            }`;
+            const tableinit = await api.asApp().requestConfluence(route`/wiki/rest/api/content`, {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              },
+              body: bodyData
+            });
+            const tableinitresponse = await tableinit.json()
+            
+          }
+        }
+        if(checkspacesresponse.name == "Certificate Manager") 
+        {
+            const space_id = checkspacesresponse.id
+            if(certificate_list.length > 0)
+            {
+            // next 7 days  
+            var curr = new Date; // get current date
+            var first = curr.getDate() - curr.getDay(); // First day is the day of the month - the day of the week
+            var last = first + 6; // last day is the first day + 6
+            var startDate = new Date(curr.setDate(first));
+            var endDate = new Date(curr.setDate(last));
+            const cert_expires_7_days = certificate_list.filter(
+              function(certificate) {
+                return new Date(certificate.expired_date) >= startDate && new Date(certificate.expired_date) <= endDate
+              }
+            )
+            //month
+            var date = new Date();
+            var startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+            var endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+            const cert_expires_this_month = certificate_list.filter(
+              function(certificate) {
+                return new Date(certificate.expired_date) >= startDate && new Date(certificate.expired_date) <= endDate
+              }
+            )
+            //next month
+            var date = new Date();
+            var startDate = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+            var endDate = new Date(date.getFullYear(), date.getMonth() + 2, 0);
+            const cert_expires_next_month = certificate_list.filter(
+              function(certificate) {
+                return new Date(certificate.expired_date) >= startDate && new Date(certificate.expired_date) <= endDate
+              }
+            )
+            let body = ''
+            if(cert_expires_7_days.length > 0)
+            {
+              body = body+'<p><strong>Certs expiring in next 7 days:</strong></p><table data-layout="default"><colgroup><col style="width: 226.67px;" /><col style="width: 226.67px;" /><col style="width: 226.67px;" /></colgroup><tbody><tr><th><p><strong>Certificate Name</strong></p></th><th><p><strong>Issued date</strong></p></th><th><p><strong>Expired date</strong></p></th></tr>'
+              for(let i=0;i<cert_expires_7_days.length;i++)
+              {
+                body = body+'<tr><td><p>'+cert_expires_7_days[i].name+'</p></td><td><p>'+cert_expires_7_days[i].issued_date+'</p></td><td><p>'+cert_expires_7_days[i].expired_date+'</p></td></tr>'
+              }
+              body = body+'</tbody></table>'
+            }
+            if(cert_expires_this_month.length > 0)
+            {
+              body = body+'<p><strong>Certs expiring this month:</strong></p><table data-layout="default"><colgroup><col style="width: 226.67px;" /><col style="width: 226.67px;" /><col style="width: 226.67px;" /></colgroup><tbody><tr><th><p><strong>Certificate Name</strong></p></th><th><p><strong>Issued date</strong></p></th><th><p><strong>Expired date</strong></p></th></tr>'
+              for(let i=0;i<cert_expires_this_month.length;i++)
+              {
+                body = body+'<tr><td><p>'+cert_expires_this_month[i].name+'</p></td><td><p>'+cert_expires_this_month[i].issued_date+'</p></td><td><p>'+cert_expires_this_month[i].expired_date+'</p></td></tr>'
+              }
+              body = body+'</tbody></table>'
+            }
+            if(cert_expires_next_month.length > 0)
+            {
+              body = body+'<p><strong>Certs expiring next month:</strong></p><table data-layout="default"><colgroup><col style="width: 226.67px;" /><col style="width: 226.67px;" /><col style="width: 226.67px;" /></colgroup><tbody><tr><th><p><strong>Certificate Name</strong></p></th><th><p><strong>Issued date</strong></p></th><th><p><strong>Expired date</strong></p></th></tr>'
+              for(let i=0;i<cert_expires_next_month.length;i++)
+              {
+                body = body+'<tr><td><p>'+cert_expires_next_month[i].name+'</p></td><td><p>'+cert_expires_next_month[i].issued_date+'</p></td><td><p>'+cert_expires_next_month[i].expired_date+'</p></td></tr>'
+              }
+              body = body+'</tbody></table>'
+            }
+
+            body = body+'<p><strong>All Certificates</strong></p><table data-layout="default"><colgroup><col style="width: 226.67px;" /><col style="width: 226.67px;" /><col style="width: 226.67px;" /></colgroup><tbody><tr><th><p><strong>Certificate Name</strong></p></th><th><p><strong>Issued date</strong></p></th><th><p><strong>Expired date</strong></p></th></tr>'
+            for(let i=0;i<certificate_list.length;i++)
+            {
+              body = body+'<tr><td><p>'+certificate_list[i].name+'</p></td><td><p>'+certificate_list[i].issued_date+'</p></td><td><p>'+certificate_list[i].expired_date+'</p></td></tr>'
+            }
+            body = body+'</tbody></table>'
+            body = body.replace(/"/g, '\'')
+            body = '"'+body+'"'
+            var current_date = new Date;
+            var title = 'Report Generated on - '+current_date
+            title = '"'+title+'"'
+            var bodyData = `{
+              "title": ${title},
+              "type": "page",
+              "space": {
+                "id": ${space_id},
+                "name": "Certificate Manager"
+              },
+              "body": {
+                "storage": {
+                  "value": ${body},
+                  "representation": "storage"
+                }
+              }
+            }`;
+            console.log(bodyData)
+            const tableinit = await api.asApp().requestConfluence(route`/wiki/rest/api/content`, {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              },
+              body: bodyData
+            });
+            const tableinitresponse = await tableinit.json()
+            console.log(tableinitresponse)
+          }
+        }
+        setState(STATE.VIEW_UPDATE_SUCCESSFUL);
+    }
+};
   
-  export const run = render(<Macro app={<App />} />);
+export const run = render(<Macro app={<App />} />);
